@@ -63,6 +63,34 @@ app.get("/api/rooms", (req, res) => {
   res.json(rooms.sort((a, b) => b.createdAt - a.createdAt));
 });
 
+//Get breakout rooms
+app.get("/api/breakout-status", (req, res) => {
+  const activeBreakouts = rooms
+    .filter(r => r.currentBreakout && r.currentBreakout.active)
+    .map(room => {
+      const detailedAssignments = {};
+
+      Object.entries(room.currentBreakout.assignments).forEach(([subRoomName, uids]) => {
+        detailedAssignments[subRoomName] = uids.map(uid => {
+          const p = room.participants.find(part => String(part.uid) === String(uid));
+          return {
+            uid: uid,
+            name: p ? p.name : "Unknown",
+            role: p ? p.role : "Unknown"
+          };
+        });
+      });
+
+      return {
+        mainRoomName: room.roomName,
+        meetingCode: room.meetingCode,
+        breakoutStartedAt: room.currentBreakout.startTime,
+        rooms: detailedAssignments
+      };
+    });
+    res.json(activeBreakouts);
+});
+
 // Lookup username by uid + room
 app.get("/api/username", (req, res) => {
   const { uid, roomName } = req.query;
@@ -758,17 +786,27 @@ wss.on("connection", (ws, req) => {
         broadcastToRoom(roomName, message);
       }
       else if (payload.type === "trigger_breakout") {
+        const room = rooms.find(r => r.roomName === roomName);
+        if (room) {
+          room.currentBreakout = {
+            active: true,
+            startTime: Date.now(),
+            assignments: payload.assignments
+          };
+        }
         const breakoutCommand = {
           type: "BREAKOUT_START",
-          //breakoutRoomName: `${roomName}_breakout`,
           assignments: payload.assignments,
           triggeredBy: payload.uid,
-          //targets: payload.targets
         };
-        console.log(`[WS] Room ${roomName} starting breakout triggered by ${payload.uid}`);
+        console.log(`[WS] Room ${roomName} starting breakout.`);
         broadcastToRoom(roomName, breakoutCommand);
       }
       else if (payload.type === "trigger_end_breakout") {
+        const room = rooms.find(r => r.roomName === roomName);
+        if (room) {
+          room.currentBreakout = null;
+        }
         const endCommand = {
           type: "BREAKOUT_STOP"
         };
