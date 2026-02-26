@@ -212,10 +212,13 @@ app.post("/api/rooms", async(req, res) => {
     const roomToken = tokenRes.data;
     console.log("Room Token:", roomToken);
 
+    const hostToken = crypto.randomUUID();
+
     const newRoom = {
       roomName,
       createdBy: createdBy || "Anonymous",
       createdAt: now,
+      hostToken,
       // store canonical UTC ms timestamps
       startDateTime: start,
       endDateTime: end,
@@ -233,6 +236,7 @@ app.post("/api/rooms", async(req, res) => {
     rooms.push(newRoom);
     res.json({
       ok: true,
+      hostToken,
       whiteboard: newRoom.whiteboard,
       scheduled: {
         startDateTimeMsUtc: start,
@@ -304,7 +308,7 @@ app.post("/api/tokenCheck", (req, res) => {
 
 // Generate a RTC token
 app.post("/api/token", (req, res) => {
-  const { roomName, uid, userName, role, isScreen, gender } = req.body || {};
+  const { roomName, uid, userName, role, isScreen, gender , hostToken} = req.body || {};
 
   if (!roomName) {
     return res.status(400).json({ error: "roomName required" });
@@ -405,6 +409,7 @@ app.post("/api/token", (req, res) => {
   const stored = room ? (room.participants || []).find(
     (p) => String(p.uid) === String(uidNum)
   ) : null;
+  const isHost = room && hostToken === room.hostToken;
 
   res.json({
     appId: APP_ID,
@@ -412,6 +417,8 @@ app.post("/api/token", (req, res) => {
     roomName,
     uid: uidNum,
     userName: userName || null,
+    isHost: !!isHost,
+    //host: isHost ? "host" : "non-host",
     role: role || "client",
     isScreen: !!isScreen,
     // Always reflect the canonical stored gender (or null)
