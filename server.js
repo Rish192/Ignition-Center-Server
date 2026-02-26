@@ -66,7 +66,7 @@ app.get("/api/rooms", (req, res) => {
 //Get breakout rooms
 app.get("/api/breakout-status", (req, res) => {
   const activeBreakouts = rooms
-    .filter(r => r.currentBreakout && r.currentBreakout.active)
+    .filter(r => r.currentBreakout)
     .map(room => {
       const detailedAssignments = {};
 
@@ -75,7 +75,7 @@ app.get("/api/breakout-status", (req, res) => {
           const p = room.participants.find(part => String(part.uid) === String(uid));
           return {
             uid: uid,
-            name: p ? p.name : "Unknown",
+            name: p ? p.name : "Left Room",
             role: p ? p.role : "Unknown"
           };
         });
@@ -83,8 +83,10 @@ app.get("/api/breakout-status", (req, res) => {
 
       return {
         mainRoomName: room.roomName,
-        meetingCode: room.meetingCode,
-        breakoutStartedAt: room.currentBreakout.startTime,
+        status: room.currentBreakout.status,
+        active: room.currentBreakout.active,
+        breakoutStartedAt: new Date(room.currentBreakout.startTime).toISOString(),
+        breakoutEndedAt: room.currentBreakout.endTime ? new Date(room.currentBreakout.endTime).toISOString() : "Still Active",
         rooms: detailedAssignments
       };
     });
@@ -790,7 +792,9 @@ wss.on("connection", (ws, req) => {
         if (room) {
           room.currentBreakout = {
             active: true,
+            status: "IN_PROGRESS",
             startTime: Date.now(),
+            endTime: null,
             assignments: payload.assignments
           };
         }
@@ -805,7 +809,12 @@ wss.on("connection", (ws, req) => {
       else if (payload.type === "trigger_end_breakout") {
         const room = rooms.find(r => r.roomName === roomName);
         if (room) {
-          room.currentBreakout = null;
+          // room.currentBreakout = null;
+          if (room.currentBreakout) {
+            room.currentBreakout.active = false;
+            room.currentBreakout.status = "ENDED";
+            room.currentBreakout.endTime = Date.now();
+          }
         }
         const endCommand = {
           type: "BREAKOUT_STOP"
