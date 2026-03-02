@@ -15,8 +15,8 @@ import userRoutes from './routes/userRoutes.js';
 import path from "path";
 import { fileURLToPath } from "url";
 
-const AGORA_CUSTOMER_ID = "fb0815ade6654599bae7595cdd14eef8"; // Developer Toolkit - Restful API b958d7372e2f47219ec13860c4c91d24
-const AGORA_CUSTOMER_SECRET = "13fe5c7d05d9487799d1cd7482c47f0f"; //Developer Toolkit - Restful API cab20702caee4f7eb3e5e2ad36353564
+const AGORA_CUSTOMER_ID = "d56d93af7e7f43ac84b804e2378d7e4f"; // Developer Toolkit - Restful API b958d7372e2f47219ec13860c4c91d24
+const AGORA_CUSTOMER_SECRET = "fab7e7a434124b2aa68e55e587eefa8d"; //Developer Toolkit - Restful API cab20702caee4f7eb3e5e2ad36353564
 
 const { RtcTokenBuilder, RtcRole } = pkg;
 
@@ -33,10 +33,9 @@ const __dirname = path.dirname(__filename);
 const reactBuildPath = path.join(__dirname, "client", "dist"); // or "build"
 app.use(express.static(reactBuildPath));
 
-const APP_ID = "f60d43bbaf5b49b2a25c4421d3f444b1"; //Agora Project App ID 53cb0bf2c9fe4e1196cd97b456f57122
-const APP_CERTIFICATE = "48d4e914a69b4e4686d85078fe1a376b"; // from Agora Console - Primary Certificate 57951c0e9f984f55a6b62045d4070ebe
-const SDK_TOKEN = "NETLESSSDK_YWs9b3ExZmtXa0xoTDhiRDdqSiZub25jZT05OGYxYjhkMC1jZTcxLTExZjAtOTQzZC0wMTU1ZTMxMTY2YWQmcm9sZT0wJnNpZz0wNjZjNTM0ZmRhMTFhZjQyYjczNTdjNzBhZTU3OTUxMTc3NDcyNzFmNThiY2M0ODExNGU4Y2Y5ZWU2NDEwZThj"; //Generate SDK Token [Interactive Whiteboard] NETLESSSDK_YWs9MjY3STBIZU96elloSlhHMiZub25jZT03NTk4NmUyMC03ZGIyLTExZjAtYjAyYS1iNzEwOGZjNTVhMjcmcm9sZT0wJnNpZz1lZTY5M2VmMWY1YTc5NWU3MTA0OWJiZTEzYWJmNmIyOTk5ZTM4YzRiMjgxZDE4YzAwYjk2ZTFjODFjYjdkYzJj
-const ROOM_UUID = "e14003307e4411f080bf0347da764a96";
+const APP_ID = "c86851c7434f4c64bbd41680417d8b4a"; //Agora Project App ID 53cb0bf2c9fe4e1196cd97b456f57122
+const APP_CERTIFICATE = "4294b7c6d44947dfaa99fc21b3961227"; // from Agora Console - Primary Certificate 57951c0e9f984f55a6b62045d4070ebe
+const SDK_TOKEN = "NETLESSSDK_YWs9dFY4c1lPTjJLcEhzR0pUaSZub25jZT03NjdiMzllMC0xNjA5LTExZjEtODQwOC04ZDQyZWRiOTIxOWMmcm9sZT0wJnNpZz0xMmI4MGEyY2VmMzNmN2QyODQxYzVjNjc0OWNlNmExYzE1NDI4ZjllNzRiOWU0ZjAyYzVhZGM0ODhhNDdiMTEw"; //Generate SDK Token [Interactive Whiteboard] NETLESSSDK_YWs9MjY3STBIZU96elloSlhHMiZub25jZT03NTk4NmUyMC03ZGIyLTExZjAtYjAyYS1iNzEwOGZjNTVhMjcmcm9sZT0wJnNpZz1lZTY5M2VmMWY1YTc5NWU3MTA0OWJiZTEzYWJmNmIyOTk5ZTM4YzRiMjgxZDE4YzAwYjk2ZTFjODFjYjdkYzJj
 const REGION = "us-sv";
 let rooms = [];
 const chatRooms = new Map();
@@ -827,7 +826,7 @@ wss.on("connection", (ws, req) => {
               room.currentBreakout.assignments[breakoutRoomName].push(Number(targetUid));
           }
 
-          const allAssigned = Object.values(rooom.currentBreakout.assignments).flat();
+          const allAssigned = Object.values(room.currentBreakout.assignments).flat();
           
           const moveCommand = {
             type: "MOVE_TO_BREAKOUT",
