@@ -745,6 +745,7 @@ wss.on("connection", (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const roomName = url.searchParams.get("roomName");
     const userName = url.searchParams.get("userName") || "Anonymous";
+    const uid = url.searchParams.get("uid");
 
     if (!roomName) {
       ws.close(1008, "roomName is required");
@@ -759,6 +760,7 @@ wss.on("connection", (ws, req) => {
 
     ws.roomName = roomName;
     ws.userName = userName;
+    ws.uid = uid;
 
     console.log(
       `[WS] New connection → room="${roomName}", user="${userName}"`
@@ -812,6 +814,75 @@ wss.on("connection", (ws, req) => {
         };
         console.log(`[WS] Room ${roomName} starting breakout.`);
         broadcastToRoom(roomName, breakoutCommand);
+      }
+      else if (payload.type === "trigger_move_to_breakout") {
+        const {targetUid, breakoutRoomName} = payload;
+
+        const room = rooms.find(r => r.roomName === roomName);
+        if (room && room.currentBreakout) {
+          if (!room.currentBreakout.assignments[breakoutRoomName]) {
+            room.currentBreakout.assignments[breakoutRoomName] = [];
+          }
+          if (!room.currentBreakout.assignments[breakoutRoomName].includes(Number(targetUid))) {
+              room.currentBreakout.assignments[breakoutRoomName].push(Number(targetUid));
+          }
+
+          const allAssigned = Object.values(rooom.currentBreakout.assignments).flat();
+          
+          const moveCommand = {
+            type: "MOVE_TO_BREAKOUT",
+            breakoutRoomName: breakoutRoomName,
+            allRoomUids: room.currentBreakout.assignments[breakoutRoomName]
+          };
+
+          const hostNotice = {
+            type: "USER_MOVED_TO_BREAKOUT",
+            uid: targetUid,
+            allAssignedUids: allAssigned
+          };
+
+          const clients = chatRooms.get(roomName) || new Set();
+          for (const client of clients) {
+            if (String(client.uid) === String(targetUid) && client.readyState === client.OPEN) {
+              client.send(JSON.stringify(moveCommand));
+            } else {
+              client.send(JSON.stringify(hostNotice));
+            }
+          }
+        }
+
+        // const moveCommand = {
+        //   type: "MOVE_TO_BREAKOUT",
+        //   breakoutRoomName: breakoutRoomName,
+        //   allRoomUids: room.currentBreakout.assignments[breakoutRoomName]
+        // };
+
+        // const clients = chatRooms.get(roomName) || new Set();
+        // for (const client of clients) {
+        //   if (client.uid === targetUid && client.readyState === client.OPEN) {
+        //     client.send(JSON.stringify(moveCommand));
+        //     break;
+        //   }
+        // }
+      }
+      else if (payload.type === "move_user_to_breakout") {
+        const moveCommand = {
+          type: "MOVE_TO_BREAKOUT",
+          roomName: payload.targetRoomName,
+          assignments: payload.assignments
+        };
+
+        const clients = chatRooms.get(roomName) || new Set();
+        for (const client of clients) {
+          if (client.uid === payload.targetUid && client.readyState === client.OPEN) {
+            client.send(JSON.stringify(moveCommand));
+            break;
+          }
+        }
+        broadcastToRoom(roomName, {
+          type: "UPDATE_BREAKOUT_MAP",
+          assignments: payload.assignments
+        });
       }
       else if (payload.type === "trigger_end_breakout") {
         const room = rooms.find(r => r.roomName === roomName);
