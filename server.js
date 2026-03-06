@@ -739,8 +739,35 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server, path: "/ws" });
 
+function markAlive() {
+  this.isAlive = true;
+}
+
+// Ping all clients every 0.9s to keep tunnel alive
+const HEARTBEAT_MS = 900;
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    // If last pong not received -> kill
+    if (ws.isAlive === false) {
+      try { ws.terminate(); } catch (_) {}
+      return;
+    }
+
+    ws.isAlive = false;
+    try { ws.ping(); } catch (_) {}
+  });
+}, HEARTBEAT_MS);
+
+wss.on("close", () => {
+  clearInterval(heartbeatInterval);
+});
+
 wss.on("connection", (ws, req) => {
   try {
+    // Heartbeat flags
+    ws.isAlive = true;
+    ws.on("pong", markAlive);
+
     const url = new URL(req.url, `http://${req.headers.host}`);
     const roomName = url.searchParams.get("roomName");
     const userName = url.searchParams.get("userName") || "Anonymous";
@@ -760,6 +787,10 @@ wss.on("connection", (ws, req) => {
     ws.roomName = roomName;
     ws.userName = userName;
     ws.uid = uid;
+
+    try {
+      ws.send(JSON.stringify({ type: "system", status: "connected", ts: Date.now() }));
+    } catch (_) {}
 
     console.log(
       `[WS] New connection → room="${roomName}", user="${userName}"`
@@ -781,7 +812,14 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
-      //breakout changes
+      // Allow lightweight heartbeat from client
+      if (payload?.type === "ping") {
+        try {
+          ws.send(JSON.stringify({ type: "pong", ts: Date.now() }));
+        } catch (_) {}
+        return;
+      }
+
       if (payload.type === "chat" && payload.text) {
         const message = {
           type: "chat",
@@ -901,6 +939,7 @@ wss.on("connection", (ws, req) => {
       if (set.size === 0) {
         chatRooms.delete(ws.roomName);
       }
+      try { ws.terminate(); } catch (_) {}
     });
   } catch (err) {
     console.error("WebSocket connection error:", err);
