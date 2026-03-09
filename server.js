@@ -821,14 +821,15 @@ wss.on("connection", (ws, req) => {
       }
 
       if (payload.type === "chat" && payload.text) {
+        const targetRoom = payload.roomName || roomName;
         const message = {
           type: "chat",
-          roomName,
+          roomName: targetRoom,
           userName,
           text: String(payload.text),
           ts: Date.now(),
         };
-        broadcastToRoom(roomName, message);
+        broadcastToSpecificRoom(roomName, targetRoom, message);
       }
       else if (payload.type === "trigger_breakout") {
         const room = rooms.find(r => r.roomName === roomName);
@@ -919,7 +920,24 @@ wss.on("connection", (ws, req) => {
         console.log(`[WS] Room ${roomName} ending breakout`);
         broadcastToRoom(roomName, endCommand);
       }
+      else if (payload.type === "sync_room") {
+        ws.currentSubRoom = payload.currentRoom;
+        console.log(`[WS] Sync: ${userName} is now in ${payload.currentRoom}`);
+      }
     });
+
+    function broadcastToSpecificRoom(mainRoomName, targetSubRoom, msgObj) {
+      const clients = chatRooms.get(mainRoomName) || new Set();
+      const stringified = JSON.stringify(msgObj);
+
+      for (const client of clients) {
+        if (client.readyState !== client.OPEN) continue;
+
+        if (client.currentSubRoom === targetSubRoom) {
+          client.send(stringified);
+        }
+      }
+    }
 
     function broadcastToRoom(targetRoom, msgObj) {
       // Broadcast to everyone in the same room only
