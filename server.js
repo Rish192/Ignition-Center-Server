@@ -95,8 +95,14 @@ app.get("/api/breakout-status", (req, res) => {
 // Lookup username by uid + room
 app.get("/api/username", (req, res) => {
   const { uid, roomName } = req.query;
-  const room = rooms.find(r => r.roomName === roomName);
-  if (!room) return res.status(404).json({ error: "Room not found" });
+
+  const mainRoomName = roomName.split('_')[0]; //mapping breakout room to main room
+  
+  const room = rooms.find(r => r.roomName === mainRoomName);
+  if (!room) {
+    console.log(`[Error] Room not found: ${mainRoomName} (from ${roomName})`);
+    return res.status(404).json({ error: "Room not found" });
+  }
 
   const participant = room.participants.find(p => String(p.uid) === String(uid));
   if (!participant) return res.status(404).json({ error: "User not found" });
@@ -313,8 +319,11 @@ app.post("/api/token", (req, res) => {
     return res.status(400).json({ error: "roomName required" });
   }
 
-  let room = rooms.find((r) => r.roomName === roomName);
   const isBreakout = roomName.endsWith("_breakout");
+  const mainRoomName = isBreakout ? roomName.split('_')[0] : roomName;
+
+  let room = rooms.find((r) => r.roomName === mainRoomName);
+
   if (!room && !isBreakout) {
     return res.status(404).json({ error: "Room not found" });
   }
@@ -376,7 +385,6 @@ app.post("/api/token", (req, res) => {
 
   // Upsert participant; never overwrite an existing gender with null/undefined.
   if (room && userName) {
-    //room.participants = room.participants || [];
     const existing = room.participants.find(
       p => String(p.uid) === String(uidNum)
     );
