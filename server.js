@@ -863,6 +863,10 @@ wss.on("connection", (ws, req) => {
 
         const room = rooms.find(r => r.roomName === roomName);
         if (room && room.currentBreakout) {
+          Object.keys(room.currentBreakout.assignments).forEach(rName => {
+            room.currentBreakout.assignments[rName] = room.currentBreakout.assignments[rName].filter(uid => String(uid) !== String(targetUid));
+          });
+          
           if (!room.currentBreakout.assignments[breakoutRoomName]) {
             room.currentBreakout.assignments[breakoutRoomName] = [];
           }
