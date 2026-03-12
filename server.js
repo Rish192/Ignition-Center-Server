@@ -866,7 +866,7 @@ wss.on("connection", (ws, req) => {
           Object.keys(room.currentBreakout.assignments).forEach(rName => {
             room.currentBreakout.assignments[rName] = room.currentBreakout.assignments[rName].filter(uid => String(uid) !== String(targetUid));
           });
-          
+
           if (!room.currentBreakout.assignments[breakoutRoomName]) {
             room.currentBreakout.assignments[breakoutRoomName] = [];
           }
@@ -912,6 +912,38 @@ wss.on("connection", (ws, req) => {
               client.send(JSON.stringify(syncNotice));
             } else {
               client.send(JSON.stringify(hostNotice));
+            }
+          }
+        }
+      }
+      else if (payload.type === "trigger_unassign_user") {
+        const {targetUid} = payload;
+        const room = rooms.find(r => r.roomName === roomName);
+
+        if (room && room.currentBreakout) {
+          Object.keys(room.currentBreakout.assignments).forEach(rName => {
+            room.currentBreakout.assignments[rName] = room.currentBreakout.assignments[rName].filter(uid => String(uid) !== String(targetUid));
+          });
+
+          const allAssigned = Object.values(room.currentBreakout.assignments).flat();
+          const returnCommand = {
+            type: "UNASSIGN_FROM_BREAKOUT",
+            allAssignedUids: allAssigned
+          };
+
+          const updateNotice = {
+            type: "USER_UNASSIGNED",
+            uid: targetUid,
+            allAssignedUids: allAssigned
+          };
+
+          const clients = chatRooms.get(roomName) || new Set();
+          for (const client of clients) {
+            if (client.readyState !== client.OPEN) continue;
+            if (Number(client.uid) === Number(targetUid)) {
+              client.send(JSON.stringify(returnCommand));
+            } else {
+              client.send(JSON.stringify(updateNotice));
             }
           }
         }
