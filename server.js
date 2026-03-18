@@ -849,14 +849,63 @@ wss.on("connection", (ws, req) => {
             endTime: null,
             assignments: payload.assignments
           };
+          const breakoutRoomNames = Object.keys(payload.assignments);
+          Promise.all(breakoutRoomNames.map(async (subName) => {
+            const uniqueSubRoomName = `${roomName}-breakout-${subName}`;
+
+            if (rooms.find(r => r.roomName === uniqueSubRoomName)) return;
+
+            try {
+              const roomRes = await axios.post(
+                "https://api.netless.link/v5/rooms",
+                { isRecord: false },
+                { headers: { token: SDK_TOKEN, "Content-Type": "application/json", region: REGION } }
+              );
+
+              const { uuid } = roomRes.data;
+              const parentEnd = Number(room.endDateTime);
+              const now = Date.now();
+              const lifespanMs = Math.max(parentEnd - now, 3600000); // at least 1 hour
+
+              const tokenRes = await axios.post(
+                `https://api.netless.link/v5/tokens/rooms/${uuid}`,
+                { lifespan: lifespanMs, role: "admin" },
+                { headers: { token: SDK_TOKEN, "Content-Type": "application/json", region: REGION } }
+              );
+
+              rooms.push({
+                roomName: uniqueSubRoomName,
+                isBreakout: true, // flag to identify it
+                parentRoom: roomName,
+                createdAt: now,
+                startDateTime: room.startDateTime,
+                endDateTime: room.endDateTime,
+                whiteboard: {
+                  uuid,
+                  token: tokenRes.data,
+                  expiresAt: now + lifespanMs,
+                }
+              });
+              console.log(`[Whiteboard] Created for breakout: ${uniqueSubRoomName}`);
+            } catch (err) {
+              console.error(`Failed to create whiteboard for ${subName}:`, err.message);
+            }
+          })).then(() => {
+            const breakoutCommand = {
+              type: "BREAKOUT_START",
+              assignments: payload.assignments,
+              triggeredBy: payload.uid,
+            };
+            broadcastToRoom(roomName, breakoutCommand);
+          });
         }
-        const breakoutCommand = {
-          type: "BREAKOUT_START",
-          assignments: payload.assignments,
-          triggeredBy: payload.uid,
-        };
-        console.log(`[WS] Room ${roomName} starting breakout.`);
-        broadcastToRoom(roomName, breakoutCommand);
+        // const breakoutCommand = {
+        //   type: "BREAKOUT_START",
+        //   assignments: payload.assignments,
+        //   triggeredBy: payload.uid,
+        // };
+        // console.log(`[WS] Room ${roomName} starting breakout.`);
+        // broadcastToRoom(roomName, breakoutCommand);
       }
       else if (payload.type === "trigger_move_to_breakout") {
         const {targetUid, breakoutRoomName} = payload;
