@@ -262,11 +262,18 @@ setInterval(() => {
 
 // Get whiteboard info for a room
 app.get("/api/rooms/:roomName/whiteboard", (req, res) => {
-  const room = rooms.find(r => r.roomName === req.params.roomName);
-  if (!room || !room.whiteboard) {
-    return res.status(404).json({ error: "Whiteboard not found" });
+  const mainRoom = rooms.find(r => r.roomName === req.params.roomName);
+  const breakoutName = req.query.breakout;
+  if (!mainRoom) {
+    return res.status(404).json({ error: "Room not found" });
   }
-  res.json(room.whiteboard);
+  if (breakoutName && mainRoom.currentBreakout?.whiteboards?.[breakoutName]) {
+    return res.json(mainRoom.currentBreakout.whiteboards[breakoutName]);
+  }
+  if (mainRoom.whiteboard) {
+    return res.json(mainRoom.whiteboard);
+  }
+  res.status(404).json({ error: "Whiteboard not found" });
 });
 
 app.get("/api/meetingCode/new", (req, res) => {
@@ -812,7 +819,7 @@ wss.on("connection", (ws, req) => {
     set.add(ws);
 
     // Incoming messages from this client
-    ws.on("message", (data) => {
+    ws.on("message", async (data) => {
       let payload;
       try {
         payload = JSON.parse(data.toString());
@@ -847,14 +854,11 @@ wss.on("connection", (ws, req) => {
             status: "IN_PROGRESS",
             startTime: Date.now(),
             endTime: null,
-            assignments: payload.assignments
+            assignments: payload.assignments,
+            whiteboards: {}
           };
           const breakoutRoomNames = Object.keys(payload.assignments);
-          Promise.all(breakoutRoomNames.map(async (subName) => {
-            const uniqueSubRoomName = `${roomName}-breakout-${subName}`;
-
-            if (rooms.find(r => r.roomName === uniqueSubRoomName)) return;
-
+          await Promise.all(breakoutRoomNames.map(async (subName) => {
             try {
               const roomRes = await axios.post(
                 "https://api.netless.link/v5/rooms",
@@ -873,20 +877,25 @@ wss.on("connection", (ws, req) => {
                 { headers: { token: SDK_TOKEN, "Content-Type": "application/json", region: REGION } }
               );
 
-              rooms.push({
-                roomName: uniqueSubRoomName,
-                isBreakout: true, // flag to identify it
-                parentRoom: roomName,
-                createdAt: now,
-                startDateTime: room.startDateTime,
-                endDateTime: room.endDateTime,
-                whiteboard: {
-                  uuid,
-                  token: tokenRes.data,
-                  expiresAt: now + lifespanMs,
-                }
-              });
-              console.log(`[Whiteboard] Created for breakout: ${uniqueSubRoomName}`);
+              room.currentBreakout.whiteboards[subName] = {
+                uuid,
+                token: tokenRes.data,
+                expiresAt: now + lifespanMs,
+              };
+              // rooms.push({
+              //   roomName: uniqueSubRoomName,
+              //   isBreakout: true, // flag to identify it
+              //   parentRoom: roomName,
+              //   createdAt: now,
+              //   startDateTime: room.startDateTime,
+              //   endDateTime: room.endDateTime,
+              //   whiteboard: {
+              //     uuid,
+              //     token: tokenRes.data,
+              //     expiresAt: now + lifespanMs,
+              //   }
+              // });
+              console.log(`[Whiteboard] Created for breakout: ${subName}`);
             } catch (err) {
               console.error(`Failed to create whiteboard for ${subName}:`, err.message);
             }
