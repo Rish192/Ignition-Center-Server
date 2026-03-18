@@ -918,9 +918,30 @@ wss.on("connection", (ws, req) => {
       }
       else if (payload.type === "trigger_move_to_breakout") {
         const {targetUid, breakoutRoomName} = payload;
-
         const room = rooms.find(r => r.roomName === roomName);
+
         if (room && room.currentBreakout) {
+          if (!room.currentBreakout.whiteboards[breakoutRoomName]) {
+            console.log(`[Whiteboard] Creating missing whiteboard for ${breakoutRoomName} during move operation.`);
+            try {
+              const roomRes = await axios.post("https://api.netless.link/v5/rooms", 
+                  { isRecord: false }, 
+                  { headers: { token: SDK_TOKEN, region: REGION } }
+              );
+              const { uuid } = roomRes.data;
+              const tokenRes = await axios.post(`https://api.netless.link/v5/tokens/rooms/${uuid}`,
+                  { lifespan: 3600000, role: "admin" },
+                  { headers: { token: SDK_TOKEN } }
+              );
+
+              room.currentBreakout.whiteboards[breakoutRoomName] = {
+                  uuid,
+                  token: tokenRes.data,
+              };
+            } catch (err) {
+              console.error("Failed to create missing whiteboard on move: ", err.message);
+            }
+          }
           Object.keys(room.currentBreakout.assignments).forEach(rName => {
             room.currentBreakout.assignments[rName] = room.currentBreakout.assignments[rName].filter(uid => String(uid) !== String(targetUid));
           });
